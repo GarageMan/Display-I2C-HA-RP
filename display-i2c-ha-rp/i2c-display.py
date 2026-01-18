@@ -6,103 +6,105 @@ import time
 import requests
 import os
 import logging
+import socket
 import sys
 
-# RADIKALE LOGGING-SPERRE: 
-# Wir setzen das Level auf ERROR. Damit werden WARNING und INFO komplett ignoriert.
-logging.basicConfig(level=logging.ERROR)
-logger = logging.getLogger(__name__)
+# --- LOGGING ---
+logging.basicConfig(level=logging.WARNING)
 
-# --- FUNKTIONEN ---
-
-def get_cpu_temp():
+# --- INITIALISIERUNG ---
+def get_ip():
     try:
-        with open("/sys/class/thermal/thermal_zone0/temp") as f:
-            return int(f.read()) / 1000.0
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
     except:
-        return 0.0
+        return "127.0.0.1"
+
+def get_uptime():
+    uptime_seconds = time.time() - psutil.boot_time()
+    d = int(uptime_seconds // (24 * 3600))
+    h = int((uptime_seconds % (24 * 3600)) // 3600)
+    m = int((uptime_seconds % 3600) // 60)
+    if d > 0:
+        return f"{d}d {h}h {m}m"
+    return f"{h}h {m}m"
 
 def get_ha_status():
     token = os.getenv("SUPERVISOR_TOKEN") or os.getenv("HASSIO_TOKEN")
-    if not token:
-        return "Auth-Error"
     try:
         url = "http://supervisor/info"
         headers = {"Authorization": f"Bearer {token}"}
         r = requests.get(url, headers=headers, timeout=2)
         return r.json().get("data", {}).get("state", "unknown")
     except:
-        return "Verbindung..."
+        return "error"
 
-# --- INITIALISIERUNG ---
-
+# Display Setup
 try:
     serial = i2c(port=1, address=0x3C)
     device = ssd1306(serial, width=128, height=64)
 except Exception as e:
-    # Nur im absoluten Notfall direkt auf die Konsole schreiben
-    sys.stderr.write(f"Hardware-Fehler: {e}\n")
     sys.exit(1)
 
-# --- SETUP ---
-
+# Schriftarten (Standard)
 font = ImageFont.load_default()
+
+# Variablen
 blink_state = False
-last_blink = time.time()
+last_blink = 0
 last_update = 0
+ip_addr = get_ip()
 
-cpu = ram = temp = 0.0
-ha_status = "?"
-
-# --- HAUPTSCHLEIFE ---
-
+# --- LOOP ---
 while True:
-    try:
-        now = time.time()
+    now = time.time()
+    
+    # Blink-Frequenz (2Hz / 5Hz)
+    ha_status = get_ha_status()
+    interval = 0.1 if ha_status != "running" else 0.25
+    if now - last_blink >= interval:
+        blink_state = not blink_state
+        last_blink = now
 
-        # Blink-Logik (2 Hz bei OK, 5 Hz bei Fehler)
-        interval = 0.1 if ha_status != "running" else 0.25
-        if now - last_blink >= interval:
-            blink_state = not blink_state
-            last_blink = now
+    # Daten-Update
+    if now - last_update >= 2.0:
+        cpu = psutil.cpu_percent()
+        ram = psutil.virtual_memory().percent
+        temp = 0.0
+        try:
+            with open("/sys/class/thermal/thermal_zone0/temp") as f:
+                temp = int(f.read()) / 1000.0
+        except: pass
+        uptime = get_uptime()
+        last_update = now
 
-        # Daten-Update alle 1 Sekunde
-        if now - last_update >= 1.0:
-            cpu = psutil.cpu_percent()
-            ram = psutil.virtual_memory().percent
-            temp = get_cpu_temp()
-            ha_status = get_ha_status()
-            last_update = now
-            # HIER GIBT ES KEINE PRINT ODER LOGGING BEFEHLE MEHR!
+    # --- ZEICHNEN ---
+    img = Image.new("1", (128, 64), 0)
+    draw = ImageDraw.Draw(img)
 
-        # Zeichnen
-        img = Image.new("1", (128, 64), 0)
-        draw = ImageDraw.Draw(img)
+    # 1. Tech-Header (Invertiert)
+    draw.rectangle((0, 0, 128, 12), fill=255)
+    draw.text((4, 1), f"IP: {ip_addr}", font=font, fill=0)
 
-        # UI Texte
-        draw.text((0, 0), "SYSTEM MONITOR", font=font, fill=255)
-        draw.text((0, 14), f"CPU: {cpu:4.1f}%", font=font, fill=255)
-        draw.text((0, 26), f"RAM: {ram:4.1f}%", font=font, fill=255)
-        draw.text((0, 38), f"Temp: {temp:4.1f}C", font=font, fill=255)
-        draw.text((0, 50), f"HA: {ha_status}", font=font, fill=255)
+    # 2. System Daten (Zwei Spalten Optik)
+    draw.text((0, 16),  f"CPU:  {cpu:>5.1f}%", font=font, fill=255)
+    draw.text((0, 28),  f"RAM:  {ram:>5.1f}%", font=font, fill=255)
+    draw.text((0, 40),  f"TEMP: {temp:>5.1f}C", font=font, fill=255)
+    
+    # Trennlinie
+    draw.line((0, 52, 128, 52), fill=255)
 
-        # Balken
-        bx, bw, bh = 70, 50, 6
-        draw.rectangle((bx, 16, bx+bw, 16+bh), outline=255)
-        draw.rectangle((bx, 16, bx+int(bw*cpu/100), 16+bh), fill=255)
-        draw.rectangle((bx, 28, bx+bw, 28+bh), outline=255)
-        draw.rectangle((bx, 28, bx+int(bw*ram/100), 28+bh), fill=255)
+    # 3. Footer (Uptime & HA Status)
+    draw.text((0, 54), f"UP: {uptime}", font=font, fill=255)
 
-        # Status LED
-        if blink_state:
-            draw.ellipse((116, 50, 124, 58), outline=255, fill=255)
-        else:
-            draw.ellipse((116, 50, 124, 58), outline=255, fill=0)
+    # 4. Status LED (unten rechts)
+    if blink_state:
+        draw.ellipse((118, 54, 124, 60), outline=255, fill=255)
+    else:
+        draw.ellipse((118, 54, 124, 60), outline=255, fill=0)
 
-        device.display(img)
-
-    except Exception:
-        # Im Fehlerfall einfach kurz warten und weitermachen
-        time.sleep(1)
-
-    time.sleep(0.05)
+    device.display(img)
+    time.sleep(0.1)
