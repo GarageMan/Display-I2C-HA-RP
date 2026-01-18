@@ -1,7 +1,11 @@
 #!/bin/bash
-echo "--- Kaltstart ohne s6-overlay ---"
-i2cdetect -y 1 || echo "Bus nicht erreichbar"
+# Kurze Statusmeldung beim Start
+echo "[Status] Add-on Initialisierung..."
 
-echo "--- Starte Python ---"
+# I2C Scan nur ausführen, aber Ausgabe unterdrücken, wenn nicht nötig
+# Oder einfach so lassen, da es nur einmal beim Start erscheint
+i2cdetect -y 1
+
+echo "[Status] Python-App wird gestartet..."
 cd /app
-python3 display.py
+exec python3 display.py
