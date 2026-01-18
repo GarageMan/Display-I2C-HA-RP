@@ -8,4 +8,4 @@ i2cdetect -y 1
 
 echo "[Status] Python-App wird gestartet..."
 cd /app
-exec python3 display.py
+exec python3 i2c-display.py
