@@ -64,6 +64,9 @@ Bevor du das Add-on startest, sind zwei Sicherheitseinstellungen zwingend erford
 | Unten | Uptime: 2d 14h | "Kleiner, dezenter Text" |
 | Ecke unten rechts | Status-Punkt | Dein bewährtes Blinken |
 
+<img width="240" height="177" alt="image" src="https://github.com/user-attachments/assets/c894e0d4-db1c-40bf-93ad-6c58d05b3788" />
+
+
 ## 6. Dateistruktur
 
 ```text
@@ -79,5 +82,6 @@ Display-I2C-HA-RP/
     ├── run.sh
     └── README.md
 ```
+
 
 
