@@ -9,7 +9,7 @@ import logging
 import sys
 
 # --- LOGGING KONFIGURATION ---
-# Das Level WARNING unterdrückt alle INFO- und DEBUG-Meldungen.
+# Wir setzen das Level auf WARNING. INFO-Meldungen werden nun ignoriert.
 logging.basicConfig(
     level=logging.WARNING,
     format="%(asctime)s [%(levelname)s] %(message)s"
@@ -20,12 +20,12 @@ logging.basicConfig(
 def init_display(retries=5, delay=2):
     for i in range(retries):
         try:
-            # I2C Port 1 (SDA: GPIO 2 / SCL: GPIO 3)
             serial = i2c(port=1, address=0x3C)
             device = ssd1306(serial, width=128, height=64)
             return device
         except Exception as e:
-            logging.error(f"Initialisierungsfehler: {e}")
+            # Nur im Fehlerfall wird geloggt
+            logging.error(f"Display Initialisierungsfehler: {e}")
             time.sleep(delay)
     return None
 
@@ -73,50 +73,50 @@ while True:
     try:
         now = time.time()
 
-        # Dynamische Blink-Frequenz: 2 Hz normal, 5 Hz bei Fehler
+        # Blink-Frequenz: 2 Hz normal, 5 Hz bei Fehler
         blink_interval = 0.1 if ha_status in ["error", "unknown", "no_auth"] else 0.25
 
         if now - last_blink >= blink_interval:
             blink_state = not blink_state
             last_blink = now
 
-        # Daten-Update alle 1 Sekunde (OHNE logging.info Ausgabe)
+        # Daten-Update alle 1 Sekunde
         if now - last_update >= update_interval:
             cpu = psutil.cpu_percent()
             ram = psutil.virtual_memory().percent
             temp = get_cpu_temp()
             ha_status = get_ha_status()
             last_update = now
+            # HIER WAR DER FEHLER: Die Zeile logging.info(...) wurde komplett gelöscht.
 
-        # Bild zeichnen (Buffer leeren)
+        # Bild zeichnen
         img = Image.new("1", (128, 64), 0)
         draw = ImageDraw.Draw(img)
 
-        # Texte zeichnen
+        # UI Texte
         draw.text((0, 0), "System Monitor", font=font_small, fill=255)
         draw.text((0, 14), f"CPU: {cpu:4.1f}%", font=font_small, fill=255)
         draw.text((0, 26), f"RAM: {ram:4.1f}%", font=font_small, fill=255)
         draw.text((0, 38), f"Temp: {temp:4.1f}C", font=font_small, fill=255)
         draw.text((0, 50), f"HA: {ha_status}", font=font_small, fill=255)
 
-        # Balken-Anzeigen
+        # Balken
         bar_x, bar_width, bar_height = 70, 50, 6
         draw.rectangle((bar_x, 16, bar_x + bar_width, 16 + bar_height), outline=255)
         draw.rectangle((bar_x, 16, bar_x + int(bar_width * cpu / 100), 16 + bar_height), fill=255)
         draw.rectangle((bar_x, 28, bar_x + bar_width, 28 + bar_height), outline=255)
         draw.rectangle((bar_x, 28, bar_x + int(bar_width * ram / 100), 28 + bar_height), fill=255)
 
-        # Status LED Kreis unten rechts
+        # Status LED
         fill = 255 if blink_state else 0
         draw.ellipse((116, 50, 124, 58), outline=255, fill=fill)
 
-        # An Hardware senden
         device.display(img)
         
     except Exception as e:
-        # Nur echte Fehler werden im Log ausgegeben
+        # Nur echte Fehler loggen
         logging.error(f"Laufzeitfehler: {e}")
         time.sleep(1)
 
-    # Kurze Pause für CPU-Entlastung
+    # Kurze Pause
     time.sleep(0.05)
