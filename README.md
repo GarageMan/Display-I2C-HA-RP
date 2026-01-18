@@ -1,27 +1,60 @@
-# I2C System Display Add-on
+# I2C System Display für Home Assistant
 
-Dieses Home Assistant Add-on zeigt Systeminformationen auf einem 128x64 I2C OLED Display an:
+Dieses Add-on zeigt CPU-Last, RAM-Verbrauch, Temperatur und den Home Assistant Status auf einem **SSD1306 OLED Display** (128x64) an.
 
 - CPU-Auslastung
 - RAM-Auslastung
 - CPU-Temperatur
-- Home Assistant Status
-- Status-LED
+- Home Assistant Status mittels "Status-LED"
 
-## Installation
+## 1. Hardware-Vorbereitung
 
-1. GitHub-Repository in Home Assistant hinzufügen:
-   **Einstellungen → Add-ons → Add-on Store → Repositories → URL einfügen**
+Verbinde das Display mit den GPIO-Pins deines Raspberry Pi 4:
 
-2. Add-on „I2C System Display“ installieren
+| Display Pin | Raspberry Pi Pin | Funktion |
+| --- | --- | --- |
+| VCC | Pin 1 | 3.3V Strom |
+| GND | Pin 6 | Masse |
+| SDA | Pin 3 (GPIO 2) | Datenleitung |
+| SCL | Pin 5 (GPIO 3) | Taktleitung |
 
-3. I2C aktivieren:
-   Supervisor → System → Hardware → I2C muss sichtbar sein  
-   Falls nicht: Raspberry Pi → I2C im Bootloader aktivieren
+## 2. I2C am Host aktivieren (Wichtig!)
 
-4. Add-on starten
+Home Assistant OS benötigt eine explizite Freigabe für den I2C-Bus auf der Hardware-Ebene:
 
-Das Display aktualisiert sich automatisch mit 1 Hz.
+1. SD-Karte am PC öffnen.
+2. In der Partition `hassos-boot` die Datei `config.txt` suchen.
+3. Folgende Zeilen am Ende hinzufügen:
+```text
+dtparam=i2c_arm=on
+dtparam=i2c_vc=on
+dtoverlay=i2c-rtc,ds3231
+```
+
+4. SD-Karte wieder in den Pi stecken und neu starten.
+
+## 3. Installation des Add-ons
+
+1. Gehe in Home Assistant zu **Einstellungen** > **Add-ons** > **Add-on Store**.
+2. Klicke oben rechts auf die drei Punkte > **Repositories**.
+3. Füge die URL deines GitHub-Repositories hinzu.
+4. Suche das Add-on **"I2C System Display"** und klicke auf **Installieren**.
+
+## 4. Konfiguration & Start
+
+Bevor du das Add-on startest, sind zwei Sicherheitseinstellungen zwingend erforderlich:
+
+1. Öffne die Seite des installierten Add-ons.
+2. Deaktiviere den **"Gesicherten Modus"** (Protection Mode), damit das Add-on auf die GPIO-Pins zugreifen darf.
+3. Aktiviere (optional) **"In der Seitenleiste anzeigen"**.
+4. Klicke auf **Starten**.
+
+## 5. Status-LED (Punkt unten rechts)
+
+* **Blinkt langsam (2 Hz):** Home Assistant läuft korrekt (`running`).
+* **Blinkt schnell (5 Hz):** Home Assistant startet noch oder es liegt ein Fehler vor.
+
+## 6. Dateistruktur
 
 ```text
 Display-I2C-HA-RP/
@@ -36,3 +69,4 @@ Display-I2C-HA-RP/
     ├── run.sh
     └── README.md
 ```
+
