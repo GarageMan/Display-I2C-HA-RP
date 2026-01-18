@@ -21,7 +21,7 @@ COPY requirements.txt .
 RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Skripte kopieren
-COPY display.py .
+COPY i2c-display.py .
 COPY run.sh /
 RUN chmod a+x /run.sh
 
