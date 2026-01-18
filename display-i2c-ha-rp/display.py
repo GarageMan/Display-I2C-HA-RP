@@ -16,13 +16,11 @@ logging.basicConfig(
 
 logging.info("Display-Skript startet...")
 
-# --- INITIALISIERUNG MIT FEHLERBEHANDLUNG ---
+# --- INITIALISIERUNG ---
 
 def init_display(retries=5, delay=2):
-    """Versucht das Display mehrmals zu initialisieren."""
     for i in range(retries):
         try:
-            # I2C Display Initialisierung 
             serial = i2c(port=1, address=0x3C)
             device = ssd1306(serial, width=128, height=64)
             logging.info("Display erfolgreich initialisiert!")
@@ -33,26 +31,21 @@ def init_display(retries=5, delay=2):
     return None
 
 device = init_display()
-
 if not device:
-    logging.critical("Hardware-Verbindung fehlgeschlagen. Add-on wird beendet.")
+    logging.critical("Hardware-Verbindung fehlgeschlagen.")
     sys.exit(1)
 
 # --- HELFERFUNKTIONEN ---
 
 font_small = ImageFont.load_default()
-
-# Token-Abfrage für verschiedene HA-Versionen 
 SUPERVISOR_TOKEN = os.getenv("SUPERVISOR_TOKEN") or os.getenv("HASSIO_TOKEN")
 SUPERVISOR_URL = "http://supervisor/info"
 
 def get_cpu_temp():
     try:
-        # Standardpfad für Raspberry Pi Temperatur 
         with open("/sys/class/thermal/thermal_zone0/temp") as f:
             return int(f.read()) / 1000.0
     except Exception as e:
-        logging.error(f"Fehler beim Lesen der CPU-Temperatur: {e}")
         return 0.0
 
 def get_ha_status():
@@ -64,21 +57,33 @@ def get_ha_status():
         data = r.json()
         return data.get("data", {}).get("state", "unknown")
     except Exception as e:
-        logging.error(f"Fehler beim Lesen des HA-Status: {e}")
         return "error"
 
-# --- HAUPTSCHLEIFE ---
+# --- VARIABLEN FÜR SCHLEIFE ---
 
+blink_state = False
+last_blink = time.time()
 last_update = 0
 update_interval = 1.0
+
 cpu = ram = temp = 0.0
 ha_status = "?"
+
+# --- HAUPTSCHLEIFE ---
 
 while True:
     try:
         now = time.time()
 
-        # Daten aktualisieren 
+        # Dynamische Blink-Frequenz
+        # Normal: 0.25s (2 Hz) | Fehler: 0.1s (5 Hz)
+        blink_interval = 0.1 if ha_status in ["error", "unknown", "no_auth"] else 0.25
+
+        if now - last_blink >= blink_interval:
+            blink_state = not blink_state
+            last_blink = now
+
+        # Daten-Update alle 1 Sekunde
         if now - last_update >= update_interval:
             cpu = psutil.cpu_percent()
             ram = psutil.virtual_memory().percent
@@ -87,36 +92,38 @@ while True:
             last_update = now
             logging.info(f"CPU={cpu:.1f}% RAM={ram:.1f}% Temp={temp:.1f}°C HA={ha_status}")
 
-        # Bild erstellen 
+        # Bild zeichnen
         img = Image.new("1", (128, 64), 0)
         draw = ImageDraw.Draw(img)
 
-        # UI Zeichnen 
+        # UI Texte
         draw.text((0, 0), "System Monitor", font=font_small, fill=255)
         draw.text((0, 14), f"CPU: {cpu:4.1f}%", font=font_small, fill=255)
         draw.text((0, 26), f"RAM: {ram:4.1f}%", font=font_small, fill=255)
         draw.text((0, 38), f"Temp: {temp:4.1f}C", font=font_small, fill=255)
         draw.text((0, 50), f"HA: {ha_status}", font=font_small, fill=255)
 
-        # Balken-Anzeige 
+        # Balken
         bar_x, bar_width, bar_height = 70, 50, 6
         draw.rectangle((bar_x, 16, bar_x + bar_width, 16 + bar_height), outline=255)
         draw.rectangle((bar_x, 16, bar_x + int(bar_width * cpu / 100), 16 + bar_height), fill=255)
         draw.rectangle((bar_x, 28, bar_x + bar_width, 28 + bar_height), outline=255)
         draw.rectangle((bar_x, 28, bar_x + int(bar_width * ram / 100), 28 + bar_height), fill=255)
 
-        # Status LED (Rechts unten) 
-        fill = 255 if ha_status == "running" else 0
+        # --- STATUS LED LOGIK ---
+        # Füllen wenn (Status OK und Blink-An) ODER (Status Fehler und Blink-An)
+        # Der blink_state sorgt hier für das An/Aus
+        fill = 255 if blink_state else 0
+        
+        # Kreis zeichnen (unten rechts)
         draw.ellipse((116, 50, 124, 58), outline=255, fill=fill)
 
-        # An Hardware senden
+        # Display aktualisieren
         device.display(img)
         
-    except OSError as e:
-        logging.error(f"I2C Kommunikationsfehler während des Betriebs: {e}")
-        time.sleep(2)  # Kurze Pause zur Erholung des Busses
     except Exception as e:
-        logging.error(f"Unerwarteter Fehler in der Schleife: {e}")
+        logging.error(f"Fehler in Schleife: {e}")
         time.sleep(1)
 
-    time.sleep(0.1)
+    # Kurze Pause für CPU-Entlastung und Blink-Timing
+    time.sleep(0.05)
