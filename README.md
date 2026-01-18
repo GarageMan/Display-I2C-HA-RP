@@ -23,21 +23,16 @@ Dieses Home Assistant Add-on zeigt Systeminformationen auf einem 128x64 I2C OLED
 
 Das Display aktualisiert sich automatisch mit 1 Hz.
 
-
-HA-I2C-Display/
+```text
+Display-I2C-HA-RP/
+│
 ├── repository.json
 └── i2c_display/
+    │
     ├── config.yaml
     ├── Dockerfile
     ├── display.py
     ├── requirements.txt
-    ├── README.md
-    └── rootfs/
-        └── etc/
-            └── services.d/
-                └── display/
-                    ├── run
-                    └── finish
-
-
-
+    ├── run.sh
+    └── README.md
+```
