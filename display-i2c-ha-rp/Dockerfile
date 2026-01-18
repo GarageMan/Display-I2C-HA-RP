@@ -1,10 +1,12 @@
 ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base-python:3.12-alpine3.19
 FROM $BUILD_FROM
 
-# Abhängigkeiten installieren
+# Deaktiviere das s6-overlay System explizit
+ENV S6_OVERLAY_VERSION=0
+ENV S6_BEHAVIOUR_IF_STAGE2_FAILS=2
+
+# System-Abhängigkeiten (build-base etc. für luma.oled/Pillow)
 RUN apk add --no-cache \
-    python3 \
-    py3-pip \
     i2c-tools \
     build-base \
     python3-dev \
@@ -14,7 +16,7 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-# Python Pakete
+# Python-Pakete installieren
 COPY requirements.txt .
 RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
@@ -23,7 +25,5 @@ COPY display.py .
 COPY run.sh /
 RUN chmod a+x /run.sh
 
-# DAS IST DER ENTSCHEIDENDE TEIL:
-# Wir überschreiben NICHT den Entrypoint des Base-Images,
-# sondern nutzen CMD, um unser Skript dem s6-init-System zu übergeben.
-CMD [ "/run.sh" ]
+# Wir nutzen ENTRYPOINT, um s6 komplett zu umgehen
+ENTRYPOINT ["/bin/bash", "/run.sh"]
