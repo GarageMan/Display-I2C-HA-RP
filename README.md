@@ -54,6 +54,16 @@ Bevor du das Add-on startest, sind zwei Sicherheitseinstellungen zwingend erford
 * **Blinkt langsam (2 Hz):** Home Assistant läuft korrekt (`running`).
 * **Blinkt schnell (5 Hz):** Home Assistant startet noch oder es liegt ein Fehler vor.
 
+## 6. Layout "The Tech-Header"
+
+| Bereich | Inhalt | Design |
+| --- | --- | --- |
+| Oben (Invertiert) | 192.168.178.50 | "Weißer Balken, schwarzer Text (fett)" |
+| Mitte Links | CPU: 12% / TEMP: 42°C | Icons oder fette Schrift |
+| Mitte Rechts | RAM: 1.2/4GB | Textuell statt Balken |
+| Unten | Uptime: 2d 14h | "Kleiner, dezenter Text" |
+| Ecke unten rechts | Status-Punkt | Dein bewährtes Blinken |
+
 ## 6. Dateistruktur
 
 ```text
@@ -69,4 +79,5 @@ Display-I2C-HA-RP/
     ├── run.sh
     └── README.md
 ```
+
 
