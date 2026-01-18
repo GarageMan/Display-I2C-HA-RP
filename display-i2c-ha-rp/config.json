@@ -6,6 +6,7 @@
   "startup": "services",
   "boot": "auto",
   "init": false,
+  "host_network": true,
   "full_access": true,
   "privileged": ["SYS_RAWIO"],
   "devices": ["/dev/i2c-1"],
