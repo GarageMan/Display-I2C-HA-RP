@@ -1,0 +1,4 @@
+luma.oled
+psutil
+Pillow
+requests

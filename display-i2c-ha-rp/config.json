@@ -1,0 +1,15 @@
+{
+  "name": "I2C System Display",
+  "version": "1.0.1",
+  "slug": "display-i2c-ha-rp",
+  "description": "Zeigt Systeminfos auf I2C Display",
+  "startup": "services",
+  "boot": "auto",
+  "full_access": true,
+  "privileged": ["SYS_RAWIO"],
+  "devices": ["/dev/i2c-1"],
+  "arch": ["armv7", "aarch64", "amd64"],
+  "homeassistant_api": true,
+  "options": {},
+  "schema": {}
+}
