@@ -25,7 +25,6 @@ Das Display aktualisiert sich automatisch mit 1 Hz.
 
 
 HA-I2C-Display/
-
 ├── repository.json
 └── i2c_display/
     ├── config.yaml
@@ -39,5 +38,6 @@ HA-I2C-Display/
                 └── display/
                     ├── run
                     └── finish
+
 
 
