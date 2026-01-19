@@ -90,7 +90,7 @@ while True:
     draw.text((0, 1), f"IP: {ip_addr}", font=font, fill=255)
 
     # Trennlinie
-    draw.line((0, 14, 128, 52), fill=255)
+    draw.line((0, 14, 128, 14), fill=255)
     
     # 2. System Daten (Zwei Spalten Optik)
     draw.text((0, 16),  f"CPU:  {cpu:>5.1f}%", font=font, fill=255)
