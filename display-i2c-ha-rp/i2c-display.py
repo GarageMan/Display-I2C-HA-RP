@@ -86,9 +86,12 @@ while True:
     draw = ImageDraw.Draw(img)
 
     # 1. Tech-Header (Invertiert)
-    draw.rectangle((0, 0, 128, 12), fill=255)
-    draw.text((4, 1), f"IP: {ip_addr}", font=font, fill=0)
+    # draw.rectangle((0, 0, 128, 12), fill=255)
+    draw.text((0, 1), f"IP: {ip_addr}", font=font, fill=255)
 
+    # Trennlinie
+    draw.line((0, 14, 128, 52), fill=255)
+    
     # 2. System Daten (Zwei Spalten Optik)
     draw.text((0, 16),  f"CPU:  {cpu:>5.1f}%", font=font, fill=255)
     draw.text((0, 28),  f"RAM:  {ram:>5.1f}%", font=font, fill=255)
