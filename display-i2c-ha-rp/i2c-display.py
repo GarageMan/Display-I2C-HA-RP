@@ -8,6 +8,7 @@ import os
 import logging
 import socket
 import sys
+import datetime
 
 # --- LOGGING ---
 logging.basicConfig(level=logging.WARNING)
@@ -32,15 +33,28 @@ def get_uptime():
         return f"{d}d {h}h {m}m"
     return f"{h}h {m}m"
 
-def get_ha_status():
+def get_ha_info():
     token = os.getenv("SUPERVISOR_TOKEN") or os.getenv("HASSIO_TOKEN")
     try:
         url = "http://supervisor/info"
         headers = {"Authorization": f"Bearer {token}"}
         r = requests.get(url, headers=headers, timeout=2)
-        return r.json().get("data", {}).get("state", "unknown")
+        data = r.json().get("data", {})
+        return data.get("state", "unknown"), data.get("version", "unknown")
     except:
-        return "error"
+        return "error", "unknown"
+
+def get_disk_info():
+    usage = psutil.disk_usage('/')
+    free_gb = usage.free / (1024**3)
+    return f"{usage.percent}%", f"{free_gb:.1f}GB"
+
+def get_net_info():
+    net = psutil.net_io_counters()
+    # Umrechnung in MB
+    mb_in = net.bytes_recv / (1024**2)
+    mb_out = net.bytes_sent / (1024**2)
+    return f"{mb_in:.0f}M", f"{mb_out:.0f}M"
 
 # Display Setup
 try:
@@ -57,19 +71,24 @@ blink_state = False
 last_blink = 0
 last_update = 0
 ip_addr = get_ip()
+ha_version = "unknown"
 
 # --- LOOP ---
 while True:
     now = time.time()
     
-    # Blink-Frequenz (2Hz / 5Hz)
-    ha_status = get_ha_status()
+    # 1. Page-Switch Logik (alle 5 Sekunden wechseln)
+    # page 0: System / page 1: Storage & Net
+    current_page = (int(now) // 5) % 2
+
+    # 2. Blink-Frequenz (2Hz / 5Hz)
+    ha_status, ha_version = get_ha_info()
     interval = 0.1 if ha_status != "running" else 0.25
     if now - last_blink >= interval:
         blink_state = not blink_state
         last_blink = now
 
-    # Daten-Update
+    # 3. Daten-Update (alle 2 Sekunden)
     if now - last_update >= 2.0:
         cpu = psutil.cpu_percent()
         ram = psutil.virtual_memory().percent
@@ -79,31 +98,36 @@ while True:
                 temp = int(f.read()) / 1000.0
         except: pass
         uptime = get_uptime()
+        disk_p, disk_f = get_disk_info()
+        net_i, net_o = get_net_info()
+        zeit = datetime.datetime.now().strftime("%H:%M:%S")
         last_update = now
 
     # --- ZEICHNEN ---
     img = Image.new("1", (128, 64), 0)
     draw = ImageDraw.Draw(img)
 
-    # 1. Tech-Header (Invertiert)
-    # draw.rectangle((0, 0, 128, 12), fill=255)
+    # Zeile 1: IP-Header (Immer sichtbar)
     draw.text((0, 1), f"IP: {ip_addr}", font=font, fill=255)
-
-    # Trennlinie
     draw.line((0, 14, 128, 14), fill=255)
     
-    # 2. System Daten (Zwei Spalten Optik)
-    draw.text((0, 16),  f"CPU:  {cpu:>5.1f}%", font=font, fill=255)
-    draw.text((0, 28),  f"RAM:  {ram:>5.1f}%", font=font, fill=255)
-    draw.text((0, 40),  f"TEMP: {temp:>5.1f}C", font=font, fill=255)
+    # Inhaltsbereich (Wechselt je nach Seite)
+    if current_page == 0:
+        # SEITE 1: System Daten
+        draw.text((0, 16),  f"CPU:  {cpu:>5.1f}%", font=font, fill=255)
+        draw.text((0, 28),  f"RAM:  {ram:>5.1f}%", font=font, fill=255)
+        draw.text((0, 40),  f"TEMP: {temp:>5.1f}C", font=font, fill=255)
+    else:
+        # SEITE 2: Disk, Net, Zeit
+        draw.text((0, 16),  f"Disk: {disk_p} / {disk_f}", font=font, fill=255)
+        draw.text((0, 28),  f"Net:  I:{net_i} O:{net_o}", font=font, fill=255)
+        draw.text((0, 40),  f"Time: {zeit} | V:{ha_version[:5]}", font=font, fill=255)
     
-    # Trennlinie
+    # Zeile 5: Footer (Immer sichtbar)
     draw.line((0, 52, 128, 52), fill=255)
-
-    # 3. Footer (Uptime & HA Status)
     draw.text((0, 54), f"UP: {uptime}", font=font, fill=255)
 
-    # 4. Status LED (unten rechts)
+    # Status LED (unten rechts)
     if blink_state:
         draw.ellipse((118, 54, 124, 60), outline=255, fill=255)
     else:
